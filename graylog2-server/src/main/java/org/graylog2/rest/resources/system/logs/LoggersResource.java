@@ -46,6 +46,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Map;
 
 @RequiresAuthentication
@@ -72,7 +73,7 @@ public class LoggersResource extends RestResource {
             }
 
             final Level level = config.getLevel();
-            loggers.put(config.getName(), SingleLoggerSummary.create(level.toString().toLowerCase(), level.intLevel()));
+            loggers.put(config.getName(), SingleLoggerSummary.create(level.toString().toLowerCase(Locale.ENGLISH), level.intLevel()));
         }
 
         return LoggersSummary.create(loggers);
@@ -105,7 +106,7 @@ public class LoggersResource extends RestResource {
                                 subsystem.getValue().getTitle(),
                                 subsystem.getValue().getCategory(),
                                 subsystem.getValue().getDescription(),
-                                level.toString().toLowerCase(),
+                                level.toString().toLowerCase(Locale.ENGLISH),
                                 level.intLevel()));
             } catch (Exception e) {
                 LOG.error("Error while listing logger subsystem.", e);
@@ -149,7 +150,7 @@ public class LoggersResource extends RestResource {
         checkPermission(RestPermissions.LOGGERS_EDITSUBSYSTEM, subsystemTitle);
 
         final Subsystem subsystem = SUBSYSTEMS.get(subsystemTitle);
-        setLoggerLevel(subsystem.getCategory(), Level.toLevel(level.toUpperCase()));
+        setLoggerLevel(subsystem.getCategory(), Level.toLevel(level.toUpperCase(Locale.ENGLISH)));
     }
 
     @PUT
@@ -161,7 +162,7 @@ public class LoggersResource extends RestResource {
             @ApiParam(name = "loggerName", required = true) @PathParam("loggerName") String loggerName,
             @ApiParam(name = "level", required = true) @PathParam("level") String level) {
         checkPermission(RestPermissions.LOGGERS_EDIT, loggerName);
-        setLoggerLevel(loggerName, Level.toLevel(level.toUpperCase()));
+        setLoggerLevel(loggerName, Level.toLevel(level.toUpperCase(Locale.ENGLISH)));
     }
 
     private static class Subsystem {
