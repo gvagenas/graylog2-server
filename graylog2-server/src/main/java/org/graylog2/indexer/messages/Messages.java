@@ -39,7 +39,6 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.indices.IndexMissingException;
 import org.graylog2.configuration.ElasticsearchConfiguration;
 import org.graylog2.indexer.DeadLetter;
 import org.graylog2.indexer.Deflector;
@@ -89,29 +88,31 @@ public class Messages {
         return deadLetterQueue;
     }
 
-    public ResultMessage get(String messageId, String index) throws IndexMissingException, DocumentNotFoundException {
-        GetRequestBuilder grb = new GetRequestBuilder(c, index);
-        grb.setId(messageId);
-
-        GetResponse r = c.get(grb.request()).actionGet();
+    public ResultMessage get(String messageId, String index) throws DocumentNotFoundException {
+        final GetRequestBuilder grb = c.prepareGet()
+                .setIndex(index)
+                .setType(IndexMapping.TYPE_MESSAGE)
+                .setId(messageId);
+        final GetResponse r = c.get(grb.request()).actionGet();
 
         if (!r.isExists()) {
-            throw new DocumentNotFoundException();
+            throw new DocumentNotFoundException(index, messageId);
         }
 
         return ResultMessage.parseFromSource(r);
     }
 
-    public List<String> analyze(String string, String index) throws IndexMissingException {
-        List<String> tokens = Lists.newArrayList();
-        AnalyzeRequestBuilder arb = new AnalyzeRequestBuilder(c.admin().indices(), index, string);
-        AnalyzeResponse r = c.admin().indices().analyze(arb.request()).actionGet();
+    public List<String> analyze(String string, String index) {
+        final AnalyzeRequestBuilder builder = c.admin().indices().prepareAnalyze(index, string);
+        final AnalyzeResponse response = c.admin().indices().analyze(builder.request()).actionGet();
 
-        for (AnalyzeToken token : r.getTokens()) {
-            tokens.add(token.getTerm());
+        final List<AnalyzeToken> tokens = response.getTokens();
+        final List<String> terms = Lists.newArrayListWithCapacity(tokens.size());
+        for (AnalyzeToken token : tokens) {
+            terms.add(token.getTerm());
         }
 
-        return tokens;
+        return terms;
     }
 
     public boolean bulkIndex(final List<Message> messages) {
@@ -167,7 +168,7 @@ public class Messages {
     }
 
     private IndexRequestBuilder buildIndexRequest(String index, Map<String, Object> source, String id) {
-        return new IndexRequestBuilder(c)
+        return c.prepareIndex()
                 .setId(id)
                 .setSource(source)
                 .setIndex(index)

@@ -28,7 +28,7 @@ import org.elasticsearch.common.settings.Settings;
 import java.util.EnumSet;
 import java.util.List;
 
-import static org.elasticsearch.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class IndexChangeMonitor extends AbstractLifecycleComponent<IndexChangeMonitor> implements ClusterStateListener {
     private static final EnumSet<ClusterState.ClusterStateStatus> VALID_CLUSTER_STATES =

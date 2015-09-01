@@ -16,8 +16,10 @@
  */
 package org.graylog2.indexer.indices;
 
+import com.carrotsearch.hppc.cursors.ObjectObjectCursor;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.common.collect.UnmodifiableIterator;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.WriteConsistencyLevel;
@@ -56,9 +58,6 @@ import org.elasticsearch.client.IndicesAdminClient;
 import org.elasticsearch.cluster.ClusterState;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.MappingMetaData;
-import org.elasticsearch.common.collect.UnmodifiableIterator;
-import org.elasticsearch.common.hppc.cursors.ObjectObjectCursor;
-import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -129,11 +128,11 @@ public class Indices implements IndexManagement {
                 BulkResponse response = c.bulk(request.request()).actionGet();
 
                 LOG.info("Moving index <{}> to <{}>: Bulk indexed {} messages, took {} ms, failures: {}",
-                         source,
-                         target,
-                         response.getItems().length,
-                         response.getTookInMillis(),
-                         response.hasFailures());
+                        source,
+                        target,
+                        response.getItems().length,
+                        response.getTookInMillis(),
+                        response.hasFailures());
 
                 if (response.hasFailures()) {
                     throw new RuntimeException("Failed to move a message. Check your indexer log.");
@@ -242,26 +241,26 @@ public class Indices implements IndexManagement {
     }
 
     private IndexRequestBuilder manualIndexRequest(String index, Map<String, Object> doc, String id) {
-        final IndexRequestBuilder b = new IndexRequestBuilder(c);
-        b.setIndex(index);
-        b.setId(id);
-        b.setSource(doc);
-        b.setOpType(IndexRequest.OpType.INDEX);
-        b.setType(IndexMapping.TYPE_MESSAGE);
-        b.setConsistencyLevel(WriteConsistencyLevel.ONE);
-
-        return b;
+        return c.prepareIndex()
+                .setIndex(index)
+                .setId(id)
+                .setSource(doc)
+                .setOpType(IndexRequest.OpType.INDEX)
+                .setType(IndexMapping.TYPE_MESSAGE)
+                .setConsistencyLevel(WriteConsistencyLevel.ONE);
     }
 
     public void setReadOnly(String index) {
-        ImmutableSettings.Builder sb = ImmutableSettings.builder();
+        final Settings.Builder sb = Settings.builder()
+                // https://www.elastic.co/guide/en/elasticsearch/reference/2.0/indices-update-settings.html
+                .put("index.blocks.write", true) // Block writing.
+                .put("index.blocks.read", false) // Allow reading.
+                .put("index.blocks.metadata", false); // Allow getting metadata.
 
-        // http://www.elasticsearch.org/guide/reference/api/admin-indices-update-settings/
-        sb.put("index.blocks.write", true); // Block writing.
-        sb.put("index.blocks.read", false); // Allow reading.
-        sb.put("index.blocks.metadata", false); // Allow getting metadata.
-
-        c.admin().indices().updateSettings(new UpdateSettingsRequest(index).settings(sb.build())).actionGet();
+        final UpdateSettingsRequest request = c.admin().indices().prepareUpdateSettings(index)
+                .setSettings(sb)
+                .request();
+        c.admin().indices().updateSettings(request).actionGet();
     }
 
     public boolean isReadOnly(String index) {
@@ -272,7 +271,7 @@ public class Indices implements IndexManagement {
     }
 
     public void setReadWrite(String index) {
-        Settings settings = ImmutableSettings.builder()
+        Settings settings = Settings.builder()
                 .put("index.blocks.write", false)
                 .put("index.blocks.read", false)
                 .put("index.blocks.metadata", false)

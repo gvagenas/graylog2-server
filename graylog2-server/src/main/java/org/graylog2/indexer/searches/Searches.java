@@ -27,9 +27,7 @@ import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentHelper;
-import org.elasticsearch.index.query.BoolFilterBuilder;
-import org.elasticsearch.index.query.FilterBuilder;
-import org.elasticsearch.index.query.FilterBuilders;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
@@ -37,7 +35,6 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.filter.Filter;
 import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogram;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
 import org.elasticsearch.search.aggregations.bucket.missing.Missing;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
@@ -126,22 +123,22 @@ public class Searches {
             return period;
         }
 
-        public DateHistogram.Interval toESInterval() {
+        public org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval toESInterval() {
             switch (this.name()) {
                 case "MINUTE":
-                    return DateHistogram.Interval.MINUTE;
+                    return org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval.MINUTE;
                 case "HOUR":
-                    return DateHistogram.Interval.HOUR;
+                    return org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval.HOUR;
                 case "DAY":
-                    return DateHistogram.Interval.DAY;
+                    return org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval.DAY;
                 case "WEEK":
-                    return DateHistogram.Interval.WEEK;
+                    return org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval.WEEK;
                 case "MONTH":
-                    return DateHistogram.Interval.MONTH;
+                    return org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval.MONTH;
                 case "QUARTER":
-                    return DateHistogram.Interval.QUARTER;
+                    return org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval.QUARTER;
                 default:
-                    return DateHistogram.Interval.YEAR;
+                    return org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval.YEAR;
             }
         }
     }
@@ -239,8 +236,8 @@ public class Searches {
 
     public SearchResult search(SearchesConfig config) {
         Set<IndexRange> indices = IndexHelper.determineAffectedIndicesWithRanges(indexRangeService,
-                                                                                 deflector,
-                                                                                 config.range());
+                deflector,
+                config.range());
 
         Set<String> indexNames = Sets.newHashSet();
         for (IndexRange index : indices) {
@@ -469,7 +466,7 @@ public class Searches {
 
         final Filter f = r.getAggregations().get(AGG_FILTER);
         return new DateHistogramResult(
-                (DateHistogram) f.getAggregations().get(AGG_HISTOGRAM),
+                (org.elasticsearch.search.aggregations.bucket.histogram.Histogram) f.getAggregations().get(AGG_HISTOGRAM),
                 query,
                 request.source(),
                 interval,
@@ -515,7 +512,7 @@ public class Searches {
 
         final Filter f = r.getAggregations().get(AGG_FILTER);
         return new FieldHistogramResult(
-                (DateHistogram) f.getAggregations().get(AGG_HISTOGRAM),
+                (org.elasticsearch.search.aggregations.bucket.histogram.Histogram) f.getAggregations().get(AGG_HISTOGRAM),
                 query,
                 request.source(),
                 interval,
@@ -650,27 +647,27 @@ public class Searches {
     }
 
     @Nullable
-    private FilterBuilder standardFilters(TimeRange range, String filter) {
-        BoolFilterBuilder bfb = null;
+    private QueryBuilder standardFilters(TimeRange range, String filter) {
+        BoolQueryBuilder bfb = null;
 
         if (range != null) {
-            bfb = FilterBuilders.boolFilter();
+            bfb = QueryBuilders.boolQuery();
             bfb.must(IndexHelper.getTimestampRangeFilter(range));
         }
 
         // Not creating a filter for a "*" value because an empty filter used to be submitted that way.
         if (!isNullOrEmpty(filter) && !filter.equals("*")) {
             if (bfb == null) {
-                bfb = FilterBuilders.boolFilter();
+                bfb = QueryBuilders.boolQuery();
             }
-            bfb.must(FilterBuilders.queryFilter(QueryBuilders.queryStringQuery(filter)));
+            bfb.must(QueryBuilders.queryStringQuery(filter));
         }
 
         return bfb;
     }
 
-    private FilterBuilder standardAggregationFilters(TimeRange range, String filter) {
-        final FilterBuilder filterBuilder = standardFilters(range, filter);
+    private QueryBuilder standardAggregationFilters(TimeRange range, String filter) {
+        final QueryBuilder filterBuilder = standardFilters(range, filter);
 
         // Throw an exception here to avoid exposing an internal Elasticsearch exception later.
         if (filterBuilder == null) {

@@ -274,7 +274,7 @@ public class ESTimestampFixup {
 
     private void stopEsNode() {
         LOG.debug("Stopping ES node");
-        node.stop();
+        node.close();
     }
 
     private void processBulk(BulkRequestBuilder bulk, boolean fix) {

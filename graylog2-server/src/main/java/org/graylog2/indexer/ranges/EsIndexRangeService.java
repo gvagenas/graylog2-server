@@ -30,10 +30,10 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.NoShardAvailableActionException;
 import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetRequestBuilder;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
@@ -41,9 +41,7 @@ import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.index.Index;
-import org.elasticsearch.index.query.FilterBuilders;
-import org.elasticsearch.indices.IndexMissingException;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.filter.Filter;
 import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
@@ -128,7 +126,7 @@ public class EsIndexRangeService implements IndexRangeService {
     public IndexRange get(String index) throws NotFoundException {
         try {
             return cache.get(index);
-        } catch (ExecutionException e) {
+        } catch (ExecutionException | UncheckedExecutionException e) {
             final Throwable cause = e.getCause();
             if (cause instanceof NotFoundException) {
                 throw (NotFoundException) cause;
@@ -139,15 +137,12 @@ public class EsIndexRangeService implements IndexRangeService {
     }
 
     private IndexRange loadIndexRange(String index) throws NotFoundException {
-        final GetRequest request = new GetRequestBuilder(client, index)
-                .setType(IndexMapping.TYPE_INDEX_RANGE)
-                .setId(index)
-                .request();
+        final GetRequest request = client.prepareGet(index, IndexMapping.TYPE_INDEX_RANGE, index).request();
 
         final GetResponse r;
         try {
             r = client.get(request).actionGet();
-        } catch (IndexMissingException | NoShardAvailableActionException e) {
+        } catch (NoShardAvailableActionException e) {
             throw new NotFoundException(e);
         }
 
@@ -230,21 +225,20 @@ public class EsIndexRangeService implements IndexRangeService {
     @VisibleForTesting
     protected TimestampStats timestampStatsOfIndex(String index) {
         final FilterAggregationBuilder builder = AggregationBuilders.filter("agg")
-                .filter(FilterBuilders.existsFilter("timestamp"))
+                .filter(QueryBuilders.existsQuery("timestamp"))
                 .subAggregation(AggregationBuilders.stats("ts_stats").field("timestamp"));
         final SearchRequestBuilder srb = client.prepareSearch()
                 .setIndices(index)
-                .setSearchType(SearchType.COUNT)
+                .setSearchType(SearchType.QUERY_THEN_FETCH)
+                .setSize(0)
                 .addAggregation(builder);
 
         final SearchResponse response;
         try {
             response = client.search(srb.request()).actionGet();
-        } catch (IndexMissingException e) {
-            throw e;
         } catch (ElasticsearchException e) {
             LOG.error("Error while calculating timestamp stats in index <" + index + ">", e);
-            throw new IndexMissingException(new Index(index));
+            throw new IllegalArgumentException("Index " + index + " not found");
         }
 
         final Filter f = response.getAggregations().get("agg");

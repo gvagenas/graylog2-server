@@ -17,7 +17,9 @@
 package org.graylog2.indexer.cluster;
 
 import com.github.joschi.jadconfig.util.Duration;
-import com.google.common.collect.Lists;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -25,7 +27,10 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.action.admin.cluster.node.info.NodeInfo;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoRequest;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoResponse;
+import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
+import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsRequest;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.ClusterAdminClient;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.graylog2.indexer.Deflector;
 import org.graylog2.indexer.esplugin.ClusterStateMonitor;
@@ -35,7 +40,6 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
@@ -47,6 +51,14 @@ import java.util.concurrent.atomic.AtomicReference;
 @Singleton
 public class Cluster {
     private static final Logger LOG = LoggerFactory.getLogger(Cluster.class);
+    private static final Predicate<NodeInfo> DATA_NODE_PREDICATE = new Predicate<NodeInfo>() {
+        @Override
+        public boolean apply(NodeInfo nodeInfo) {
+            // We are setting node.data to false for our graylog2-server nodes.
+            // If it's not set or not false it is a data storing node.
+            return nodeInfo.getSettings().getAsBoolean("node.data", false);
+        }
+    };
 
     private final Client c;
     private final Deflector deflector;
@@ -73,31 +85,33 @@ public class Cluster {
         return c.admin().cluster().health(request).actionGet();
     }
 
-    public int getNumberOfNodes() {
-        return c.admin().cluster().nodesInfo(new NodesInfoRequest().all()).actionGet().getNodes().length;
+    public Map<String, NodeInfo> getDataNodes() {
+        return Maps.filterValues(getAllNodes(), DATA_NODE_PREDICATE);
     }
 
-    public List<NodeInfo> getDataNodes() {
-        List<NodeInfo> dataNodes = Lists.newArrayList();
+    public Map<String, NodeInfo> getAllNodes() {
+        final ClusterAdminClient clusterAdminClient = c.admin().cluster();
+        final NodesInfoRequest request = clusterAdminClient.prepareNodesInfo()
+                .all()
+                .request();
 
-        for (NodeInfo nodeInfo : getAllNodes()) {
-            /*
-             * We are setting node.data to false for our graylog2-server nodes.
-             * If it's not set or not false it is a data storing node.
-             */
-            String isData = nodeInfo.getSettings().get("node.data");
-            if (isData != null && isData.equals("false")) {
-                continue;
-            }
-
-            dataNodes.add(nodeInfo);
+        final ImmutableMap.Builder<String, NodeInfo> builder = ImmutableMap.builder();
+        for (NodeInfo nodeInfo : clusterAdminClient.nodesInfo(request).actionGet().getNodes()) {
+            builder.put(nodeInfo.getNode().id(), nodeInfo);
         }
 
-        return dataNodes;
+        return builder.build();
     }
 
-    public List<NodeInfo> getAllNodes() {
-        return Lists.newArrayList(c.admin().cluster().nodesInfo(new NodesInfoRequest().all()).actionGet().getNodes());
+    public Map<String, NodeStats> getNodesStats(String... nodesIds) {
+        final ClusterAdminClient clusterAdminClient = c.admin().cluster();
+        final NodesStatsRequest request = clusterAdminClient.prepareNodesStats(nodesIds).request();
+        final ImmutableMap.Builder<String, NodeStats> builder = ImmutableMap.builder();
+        for (NodeStats nodeStats : clusterAdminClient.nodesStats(request).actionGet().getNodes()) {
+            builder.put(nodeStats.getNode().id(), nodeStats);
+        }
+
+        return builder.build();
     }
 
     public String nodeIdToName(String nodeId) {
@@ -163,14 +177,15 @@ public class Cluster {
                         LOG.debug("Cluster is healthy again, unblocking waiting threads.");
                         latch.countDown();
                     }
-                } catch (Exception ignore) {} // to not cancel the schedule
+                } catch (Exception ignore) {
+                } // to not cancel the schedule
             }
         }, 0, 1, TimeUnit.SECONDS); // TODO should this be configurable?
 
         final boolean waitSuccess = latch.await(timeout, unit);
         scheduledFuture.cancel(true); // Make sure to cancel the task to avoid task leaks!
 
-        if(!waitSuccess) {
+        if (!waitSuccess) {
             throw new TimeoutException("Elasticsearch cluster didn't get healthy within timeout");
         }
     }

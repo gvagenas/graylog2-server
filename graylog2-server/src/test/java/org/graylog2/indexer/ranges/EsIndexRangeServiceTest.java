@@ -18,16 +18,16 @@ package org.graylog2.indexer.ranges;
 
 import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.joschi.nosqlunit.elasticsearch2.ElasticsearchRule;
+import com.github.joschi.nosqlunit.elasticsearch2.EmbeddedElasticsearch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.lordofthejars.nosqlunit.annotation.UsingDataSet;
 import com.lordofthejars.nosqlunit.core.LoadStrategyEnum;
-import com.lordofthejars.nosqlunit.elasticsearch.ElasticsearchRule;
-import com.lordofthejars.nosqlunit.elasticsearch.EmbeddedElasticsearch;
 import org.assertj.jodatime.api.Assertions;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.settings.ImmutableSettings;
-import org.elasticsearch.indices.IndexMissingException;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.IndexNotFoundException;
 import org.graylog2.configuration.ElasticsearchConfiguration;
 import org.graylog2.database.NotFoundException;
 import org.graylog2.indexer.Deflector;
@@ -51,8 +51,8 @@ import javax.inject.Inject;
 import java.util.Set;
 import java.util.SortedSet;
 
-import static com.lordofthejars.nosqlunit.elasticsearch.ElasticsearchRule.ElasticsearchRuleBuilder.newElasticsearchRule;
-import static com.lordofthejars.nosqlunit.elasticsearch.EmbeddedElasticsearch.EmbeddedElasticsearchRuleBuilder.newEmbeddedElasticsearchRule;
+import static com.github.joschi.nosqlunit.elasticsearch2.ElasticsearchRule.ElasticsearchRuleBuilder.newElasticsearchRule;
+import static com.github.joschi.nosqlunit.elasticsearch2.EmbeddedElasticsearch.EmbeddedElasticsearchRuleBuilder.newEmbeddedElasticsearchRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.Matchers.any;
@@ -65,7 +65,7 @@ import static org.mockito.Mockito.verify;
 public class EsIndexRangeServiceTest {
     @ClassRule
     public static final EmbeddedElasticsearch EMBEDDED_ELASTICSEARCH = newEmbeddedElasticsearchRule()
-            .settings(ImmutableSettings.settingsBuilder().put("action.auto_create_index", false).build())
+            .settings(Settings.settingsBuilder().put("action.auto_create_index", false).build())
             .build();
     private static final ImmutableSet<String> INDEX_NAMES = ImmutableSet.of("graylog", "graylog_1", "graylog_2", "graylog_3", "graylog_4", "graylog_5", "ignored");
     private static final ElasticsearchConfiguration ELASTICSEARCH_CONFIGURATION = new ElasticsearchConfiguration() {
@@ -179,7 +179,7 @@ public class EsIndexRangeServiceTest {
         assertThat(range.end()).isEqualTo(new DateTime(0L, DateTimeZone.UTC));
     }
 
-    @Test(expected = IndexMissingException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testCalculateRangeWithNonExistingIndex() throws Exception {
         indexRangeService.calculateRange("does-not-exist");
     }
@@ -290,7 +290,7 @@ public class EsIndexRangeServiceTest {
         assertThat(stats.avg()).isEqualTo(new DateTime(0L, DateTimeZone.UTC));
     }
 
-    @Test(expected = IndexMissingException.class)
+    @Test(expected = IllegalArgumentException.class)
     public void testTimestampStatsOfIndexWithNonExistingIndex() throws Exception {
         indexRangeService.timestampStatsOfIndex("does-not-exist");
     }

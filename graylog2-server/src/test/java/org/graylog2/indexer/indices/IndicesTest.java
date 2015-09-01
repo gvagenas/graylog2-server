@@ -16,10 +16,10 @@
  */
 package org.graylog2.indexer.indices;
 
+import com.github.joschi.nosqlunit.elasticsearch2.ElasticsearchRule;
+import com.github.joschi.nosqlunit.elasticsearch2.EmbeddedElasticsearch;
 import com.lordofthejars.nosqlunit.annotation.UsingDataSet;
 import com.lordofthejars.nosqlunit.core.LoadStrategyEnum;
-import com.lordofthejars.nosqlunit.elasticsearch.ElasticsearchRule;
-import com.lordofthejars.nosqlunit.elasticsearch.EmbeddedElasticsearch;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateRequest;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.admin.indices.alias.IndicesAliasesRequest;
@@ -42,8 +42,8 @@ import javax.inject.Inject;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
-import static com.lordofthejars.nosqlunit.elasticsearch.ElasticsearchRule.ElasticsearchRuleBuilder.newElasticsearchRule;
-import static com.lordofthejars.nosqlunit.elasticsearch.EmbeddedElasticsearch.EmbeddedElasticsearchRuleBuilder.newEmbeddedElasticsearchRule;
+import static com.github.joschi.nosqlunit.elasticsearch2.ElasticsearchRule.ElasticsearchRuleBuilder.newElasticsearchRule;
+import static com.github.joschi.nosqlunit.elasticsearch2.EmbeddedElasticsearch.EmbeddedElasticsearchRuleBuilder.newEmbeddedElasticsearchRule;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @RunWith(MockitoJUnitRunner.class)

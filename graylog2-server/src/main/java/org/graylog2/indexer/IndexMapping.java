@@ -84,18 +84,15 @@ public class IndexMapping {
 
         return ImmutableMap.<String, Object>of(
                 "properties", properties,
-                "_source", enabled(),
-                "_timestamp", ImmutableMap.of(
-                        "enabled", true,
-                        "format", "date_time"));
+                "_source", enabled()
+        );
     }
 
     public Map<String, Object> messageMapping(final String analyzer) {
         return ImmutableMap.of(
                 "properties", partFieldProperties(analyzer),
                 "dynamic_templates", partDefaultAllInDynamicTemplate(),
-                // Compress source field
-                "_source", enabledAndCompressed(),
+                "_source", enabled(),
                 // Enable purging by TTL
                 "_ttl", enabled());
     }
@@ -153,11 +150,5 @@ public class IndexMapping {
 
     private Map<String, Boolean> enabled() {
         return ImmutableMap.of("enabled", true);
-    }
-
-    private Map<String, Boolean> enabledAndCompressed() {
-        return ImmutableMap.of(
-                "enabled", true,
-                "compress", true);
     }
 }

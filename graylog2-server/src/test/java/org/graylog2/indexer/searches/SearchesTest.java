@@ -19,11 +19,11 @@ package org.graylog2.indexer.searches;
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.github.joschi.nosqlunit.elasticsearch2.ElasticsearchRule;
+import com.github.joschi.nosqlunit.elasticsearch2.EmbeddedElasticsearch;
 import com.google.common.collect.ImmutableSortedSet;
 import com.lordofthejars.nosqlunit.annotation.UsingDataSet;
 import com.lordofthejars.nosqlunit.core.LoadStrategyEnum;
-import com.lordofthejars.nosqlunit.elasticsearch.ElasticsearchRule;
-import com.lordofthejars.nosqlunit.elasticsearch.EmbeddedElasticsearch;
 import org.elasticsearch.client.Client;
 import org.graylog2.Configuration;
 import org.graylog2.indexer.Deflector;
@@ -52,8 +52,8 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.SortedSet;
 
-import static com.lordofthejars.nosqlunit.elasticsearch.ElasticsearchRule.ElasticsearchRuleBuilder.newElasticsearchRule;
-import static com.lordofthejars.nosqlunit.elasticsearch.EmbeddedElasticsearch.EmbeddedElasticsearchRuleBuilder.newEmbeddedElasticsearchRule;
+import static com.github.joschi.nosqlunit.elasticsearch2.ElasticsearchRule.ElasticsearchRuleBuilder.newElasticsearchRule;
+import static com.github.joschi.nosqlunit.elasticsearch2.EmbeddedElasticsearch.EmbeddedElasticsearchRuleBuilder.newEmbeddedElasticsearchRule;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.when;
@@ -256,9 +256,9 @@ public class SearchesTest {
     @SuppressWarnings("unchecked")
     public void testHistogram() throws Exception {
         final AbsoluteRange range = new AbsoluteRange(new DateTime(2015, 1, 1, 0, 0), new DateTime(2015, 1, 2, 0, 0));
-        HistogramResult h = searches.histogram("*", Searches.DateHistogramInterval.MINUTE, range);
+        HistogramResult h = searches.histogram("*", Searches.DateHistogramInterval.HOUR, range);
 
-        assertThat(h.getInterval()).isEqualTo(Searches.DateHistogramInterval.MINUTE);
+        assertThat(h.getInterval()).isEqualTo(Searches.DateHistogramInterval.HOUR);
         assertThat(h.getHistogramBoundaries()).isEqualTo(range);
         assertThat(h.getResults())
                 .hasSize(5)
@@ -292,9 +292,9 @@ public class SearchesTest {
     @SuppressWarnings("unchecked")
     public void testFieldHistogram() throws Exception {
         final AbsoluteRange range = new AbsoluteRange(new DateTime(2015, 1, 1, 0, 0), new DateTime(2015, 1, 2, 0, 0));
-        HistogramResult h = searches.fieldHistogram("*", "n", Searches.DateHistogramInterval.MINUTE, null, range, false);
+        HistogramResult h = searches.fieldHistogram("*", "n", Searches.DateHistogramInterval.HOUR, null, range, false);
 
-        assertThat(h.getInterval()).isEqualTo(Searches.DateHistogramInterval.MINUTE);
+        assertThat(h.getInterval()).isEqualTo(Searches.DateHistogramInterval.HOUR);
         assertThat(h.getHistogramBoundaries()).isEqualTo(range);
         assertThat(h.getResults()).hasSize(5);
         assertThat((Map<String, Number>) h.getResults().get(new DateTime(2015, 1, 1, 1, 0, DateTimeZone.UTC).getMillis() / 1000L))

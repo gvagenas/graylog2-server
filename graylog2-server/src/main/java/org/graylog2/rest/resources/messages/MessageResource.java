@@ -24,13 +24,12 @@ import com.wordnik.swagger.annotations.ApiResponse;
 import com.wordnik.swagger.annotations.ApiResponses;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
-import org.elasticsearch.indices.IndexMissingException;
 import org.graylog2.indexer.messages.DocumentNotFoundException;
 import org.graylog2.indexer.messages.Messages;
 import org.graylog2.indexer.results.ResultMessage;
 import org.graylog2.plugin.Message;
-import org.graylog2.shared.rest.resources.RestResource;
 import org.graylog2.rest.models.messages.responses.MessageTokens;
+import org.graylog2.shared.rest.resources.RestResource;
 import org.graylog2.shared.security.RestPermissions;
 import org.hibernate.validator.constraints.NotEmpty;
 import org.slf4j.Logger;
@@ -79,10 +78,6 @@ public class MessageResource extends RestResource {
             checkMessageReadPermission(message);
 
             return resultMessage;
-        } catch (IndexMissingException e) {
-            final String msg = "Index " + e.index().name() + " does not exist.";
-            LOG.error(msg, e);
-            throw new NotFoundException(msg, e);
         } catch (DocumentNotFoundException e) {
             final String msg = "Message " + messageId + " does not exist in index " + index;
             LOG.error(msg, e);
@@ -123,12 +118,6 @@ public class MessageResource extends RestResource {
             @PathParam("index") String index,
             @ApiParam(name = "string", value = "The string to analyze.", required = true)
             @QueryParam("string") @NotEmpty String string) {
-        try {
-            return MessageTokens.create(messages.analyze(string, index));
-        } catch (IndexMissingException e) {
-            LOG.error("Index does not exist. Returning HTTP 404.");
-            throw new NotFoundException("Index " + index + "does not exist.");
-        }
-
+        return MessageTokens.create(messages.analyze(string, index));
     }
 }
